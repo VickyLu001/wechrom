@@ -1,0 +1,19 @@
+<!--The forcefield for naked DNA, no protein-->
+<ForceField>
+
+ <AtomTypes>
+  <!--One CG Atom represents one nucleotide-->
+  <!--One type for one strand of dsDNA-->
+  <Type name="I" class="I" element="N" mass="1.0"/>
+  <Type name="J" class="J" element="N" mass="1.0"/>
+ </AtomTypes>
+
+ <Residues>
+  <!--Each BP (basepair) contains two nucleotide-->
+  <Residue name="BP">
+   <Atom name="I" type="I"/>
+   <Atom name="J" type="J"/>
+  </Residue>
+ </Residues>
+
+</ForceField>
