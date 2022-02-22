@@ -15,6 +15,13 @@ wechrom requires the following python libraries:
   
 To install **openmm**, you may refer to the `openmm installation guide <http://docs.openmm.org/7.5.0/userguide/application.html#installing-openmm>`_.
 
+Install with pip
+-------------------
+
+.. code-block:: bash
+
+    $ pip install wechrom
+
 Install from source
 -------------------
 Download the source code from
