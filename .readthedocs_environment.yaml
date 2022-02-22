@@ -1,0 +1,5 @@
+name: py37
+channels:
+- conda-forge
+dependencies:
+- openmm==7.5
