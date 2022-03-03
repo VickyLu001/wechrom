@@ -4,23 +4,22 @@ import os
 import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
-from .prepare_memory import generate_memory_files, get_memory_template_bonds
+from .prepare_memory import generate_naked_memory_files, get_naked_memory_template_bonds
 from .utils import num_intra_memory_bonds, num_inter_memory_bonds
-from simtk.openmm.app import PDBxFile, ForceField
-from simtk.openmm import HarmonicBondForce, CustomNonbondedForce, CustomBondForce, Platform
-from simtk.openmm.openmm import LangevinIntegrator
-from simtk.openmm.app.simulation import Simulation
-from simtk.unit import *
-from simtk.openmm.app.dcdreporter import DCDReporter
-from simtk.openmm.app.checkpointreporter import CheckpointReporter
+from .utils import _DNA_S1_TYPE, _DNA_S2_TYPE, _DNA_RES
 
-# Ignore warnings from MDAnalysis that mass of atom J is unknown
-import warnings
-warnings.filterwarnings("ignore")
+try:
+    # for openmm version >= 7.6
+    from openmm import LangevinIntegrator, HarmonicBondForce, CustomNonbondedForce, CustomBondForce, Platform
+    from openmm.app import CheckpointReporter, Simulation, DCDReporter, PDBxFile, ForceField, DCDFile, PDBFile
+    from openmm.unit import *
+except:
+    # for openmm version <= 7.5
+    from simtk.openmm import LangevinIntegrator, HarmonicBondForce, CustomNonbondedForce, CustomBondForce, Platform
+    from simtk.openmm.app import Simulation, DCDReporter, CheckpointReporter, DCDFile, PDBxFile, ForceField, PDBFile
+    from simtk.unit import *
 
-_DNA_RES = 'BP'
-_DNA_S1_TYPE = 'I'
-_DNA_S2_TYPE = 'J' # J atoms in reversed order to pair with I
+
 _DNA_XML = pkg_resources.resource_filename(__name__, 'data/DNA.xml')
 
 class WechromSystem:
@@ -51,17 +50,21 @@ class WechromSystem:
             built on topology from pdbx and forcefield
 
     """
-    def __init__(self, pdbxFile, xmlFile='DEFAULT',  memoryRange = 4, systemName = 'wechrom', verbose = False):
+    def __init__(self, pdbxFile, xmlFile='DEFAULT',  memoryRange = 4, verbose = False):
         """Constructs all the necessary attributes to a WEChroM system
 
         Args:
             pdbxFile (str or file): the pdbx file containing system topology and initial positions
             xmlFile (str or file, optional): the xml file containing openmm forcefield. Defaults to data/DNA.xml.
-            systemName(str, optional): name of the system, Defaults to 'wechrom'
             verbose(bool, optional): whether to print the information during the simulation. Defaults to True
         """
         # Construct a Topology and atom positions from the pdbx file
-        self.pdbx = PDBxFile(pdbxFile)
+        
+        # allow pdb filename beyond pdbx/mmcif file
+        if isinstance(pdbxFile, str) and pdbxFile.endswith("pdb"):
+            self.pdbx = PDBFile(pdbxFile)
+        else:
+            self.pdbx = PDBxFile(pdbxFile)
         self.topology = self.pdbx.topology
         self.positions = self.pdbx.getPositions(asNumpy=True)
         self.atoms = list(self.topology.atoms())
@@ -96,10 +99,10 @@ class WechromSystem:
 
         # Res2Atom and Atom2Res relation for each type
         self.dna_Atom2Res = {}
-        self.dna_Atom2Res = {}
+        self.dna_Res2Atom = {}
         for dnaType in self.dnaTypes:
             self.dna_Atom2Res[dnaType] = {atom:self.atoms[atom].residue.index for atom in self.dnaStrands[dnaType]}
-            self.dna_Atom2Res[dnaType] = {self.dna_Atom2Res[dnaType][atom]:atom for atom in self.dna_Atom2Res[dnaType]}
+            self.dna_Res2Atom[dnaType] = {self.dna_Atom2Res[dnaType][atom]:atom for atom in self.dna_Atom2Res[dnaType]}
     
     def addForce(self, force, forceName):
         """Add a force to the system, set the force group and store the corresponding str name
@@ -115,7 +118,7 @@ class WechromSystem:
         self.force_Group2Name[forceGroup] = forceName
         self.system.addForce(force)
 
-    def addConnetivityForce(self, kCon=3000.0, bondLength=2.0, forceName = 'Connectivity'):
+    def addConnetivityForce(self, kCon=3000.0, bondLength=2.0, forceName = 'Con'):
         """Add a connectivity force to the system
 
         Args:
@@ -137,7 +140,7 @@ class WechromSystem:
         if self.verbose:
             print("done")
 
-    def addExcludVolumeForce(self, kExcl=5856.0, rExcl=2.07, forceName = 'Excluded-volume'):
+    def addExcludVolumeForce(self, kExcl=5856.0, rExcl=2.07, forceName = 'Ex-vol'):
         """Add the connectivity term to the system"""
         if self.verbose:
             print("Building excluded volume force......", end = ' ')
@@ -150,7 +153,7 @@ class WechromSystem:
         # add all DNA atoms
         # note in naked DNA system, all atoms are DNA
         for atom in self.atoms:
-            if atom.name in [_DNA_S1_TYPE, _DNA_S2_TYPE]:
+            if atom.name in self.dnaTypes:
                 excl.addParticle([rExcl/2, np.sqrt(kExcl)])
             else:
                 raise Exception("None DNA atom detected in vanilla WeChroM system")
@@ -170,7 +173,7 @@ class WechromSystem:
         if self.verbose:
             print("done")
 
-    def addIntraStrandMemoryForce(self, temPos, depth = 0.3, width= 0.2, forceName = 'Intra_strand_memory'):
+    def addIntraStrandMemoryForce(self, temPos, depth = 0.3, width= 0.2, forceName = 'Intra_m'):
         """Add the intra-strand associative memory force to the system
 
         Args:
@@ -181,7 +184,7 @@ class WechromSystem:
         """
         # Apply the memory template repetitively along the DNA
         if self.verbose:
-            print("Building intra-strand associative memory force......", end = ' ')
+            print("Building DNA intra-strand associative memory force......", end = ' ')
         # Init the force in Gaussian Well
         intra = CustomBondForce(f'-depth_intra*exp((r-r0)^2/(-2.0*sigma^2))')
         intra.addGlobalParameter('depth_intra', depth)
@@ -223,7 +226,7 @@ class WechromSystem:
         if self.verbose:
             print("done")
 
-    def addInterStrandMemoryForce(self, temPos, depth = 0.3, width= 0.2, forceName = 'Inter_strand_memory'):
+    def addInterStrandMemoryForce(self, temPos, depth = 0.3, width= 0.2, forceName = 'Inter_m'):
         """Add the inter-strand associative memory force to the system
 
         Args:
@@ -234,7 +237,7 @@ class WechromSystem:
         """
         # Apply the memory template repetitively along the DNA
         if self.verbose:
-            print("Building inter-strand associative memory force......", end = ' ')
+            print("Building DNA inter-strand associative memory force......", end = ' ')
         # Init the force in Gaussian Well
         inter = CustomBondForce(f'-depth_inter*exp((r-r0)^2/(-2.0*sigma^2))')
         inter.addGlobalParameter('depth_inter', depth)
@@ -297,8 +300,8 @@ class WechromSystem:
         """
         self.addConnetivityForce()
         self.addExcludVolumeForce()
-        generate_memory_files()
-        self.temPos = get_memory_template_bonds()
+        generate_naked_memory_files()
+        self.temPos = get_naked_memory_template_bonds()
         self.addIntraStrandMemoryForce(self.temPos)
         self.addInterStrandMemoryForce(self.temPos)
             
@@ -320,10 +323,10 @@ class WechromSystem:
 
         # set up integrator 
         self.platform = Platform.getPlatformByName(platform)
-        self.temperature = temperature / 300 * 120.27 # reduced temperature
-        self.collisionRate = collisionRate * 2.75 # reduced versed time
-        self.timestep = timeStep * 0.001 / 2.75 # reduced time
-        self.integrator = LangevinIntegrator(self.temperature * kelvin, self.collisionRate / picosecond, self.timestep * picoseconds)
+        self.temperature = temperature / 300 * 120.27  * kelvin # reduced temperature
+        self.collisionRate = collisionRate * 2.75 / picosecond # reduced versed time
+        self.timestep = timeStep * 0.001 / 2.75  * picoseconds # reduced time
+        self.integrator = LangevinIntegrator(self.temperature, self.collisionRate , self.timestep)
 
         # set up simulation, initial positions and velocities
         self.simulation = Simulation(self.topology, self.system, self.integrator, self.platform)
@@ -359,8 +362,9 @@ class WechromSystem:
             print(f"Simulation will take {steps} steps and get reported every {reportFreq} steps")
         # Set up reporters
         # a DCD reporter to store the trajectory 
-        dcd_file = os.path.join(self.outputDir, dcdFilename)
-        self.simulation.reporters.append(DCDReporter(dcd_file, reportFreq, append = append))
+        # dcd_file = os.path.join(self.outputDir, dcdFilename)
+        # self.simulation.reporters.append(DCDReporter(dcd_file, reportFreq, append = append))
+
         # a checkpoint reporter to store the last checkpoint
         chk_file = os.path.join(self.outputDir, chkFilename)
         self.simulation.reporters.append(CheckpointReporter(chk_file, reportFreq))
@@ -368,11 +372,18 @@ class WechromSystem:
         # initialize the energy reporter
         if not append:
             with open(energyFilename, 'w') as fe:
-                header ='Steps ' + ' '.join(['{0:<s}(kT)'.format(i) for i in self.force_Group2Name.values()]) + ' Total(kT) Kinetics(kT)\n'
+                header ='Steps ' + ' '.join(['{0:<8s}'.format(i) for i in self.force_Group2Name.values()]) + ' Total Kinetics(kT)\n'
                 fe.write(header)
         
         if self.verbose:
             print("----------------Simulation Starts----------------")
+
+        # add a dcd writer manually to get it properly closed at the end of simulation
+        dcdFilepath = os.path.join(self.outputDir, dcdFilename)
+        dcdFilehandle = open(dcdFilepath, 'bw')
+        dcdWriter = DCDFile(dcdFilehandle, self.topology, self.timestep)
+
+        # run the simulation
         nSavedFrames = steps // reportFreq
         for i in tqdm(range(nSavedFrames)):
             self.simulation.step(reportFreq)
@@ -383,16 +394,21 @@ class WechromSystem:
                 state = self.simulation.context.getState(getEnergy=True, groups={group})
                 groupEnergy.append(state.getPotentialEnergy().value_in_unit(kilojoule_per_mole))
             # total potential energy
-            state = self.simulation.context.getState(getEnergy=True)
+            state = self.simulation.context.getState(getEnergy=True, getPositions=True)
             groupEnergy.append(state.getPotentialEnergy().value_in_unit(kilojoule_per_mole))
             # kinetic energy
             groupEnergy.append(state.getKineticEnergy().value_in_unit(kilojoule_per_mole))
+            # positions
+            positions = state.getPositions(True)
+            dcdWriter.writeModel(positions)
             
             with open(energyFilename, 'a') as fe:
                 curStep = (i+1)*reportFreq
-                line = f'{curStep:<16}' + ' '.join(['{0:<16.2f}'.format(_) for _ in groupEnergy]) + '\n'
+                line = f'{curStep:<8}' + ' '.join(['{0:<8.2f}'.format(_) for _ in groupEnergy]) + '\n'
                 fe.write(line)
         if self.verbose:
             print("\nSimulation done.")
             print(f"Please check your trajectory file {dcdFilename}, energy file {energyFilename}", end = ' ')
             print(f"at your output directory {self.outputDir}")
+        # close the dcd file 
+        dcdFilehandle.close()

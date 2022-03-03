@@ -14,7 +14,6 @@ def test_pass():
 def test_WechromSystem_init():
 	"""A comprehensive test for WechromSystem.__init__()
 	"""
-	_test_bp = 2
 
 	# test dna_res setup
 	we = WechromSystem(_cif_path)
