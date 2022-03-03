@@ -1,7 +1,19 @@
 import os
 from MDAnalysis import Universe
 import numpy as np
-from simtk.openmm.app import pdbxfile, topology, element, pdbfile
+try:
+    # for openmm version >= 7.6
+    from openmm.app import pdbxfile, topology, element, pdbfile
+except:
+    # for openmm version <= 7.5
+    from simtk.openmm.app import pdbxfile, topology, element, pdbfile
+
+_DNA_RES = 'BP'
+_DNA_S1_TYPE = 'I'
+_DNA_S2_TYPE = 'J' # J atoms in reversed order to pair with I
+_PRO_RES = 'HIT'
+_PRO_TYPE = 'C'
+_VIRTUAL_TYPE = 'V'
 
 def coarse_grain_atompdb_2_wechromcif(pdb_filename, out_dir = os.getcwd(), out_file_prefix = 'coarse_grain', out_pdb = False):
     """Coarse grain an atomistic DNA pdb file into a wechrom cif file.

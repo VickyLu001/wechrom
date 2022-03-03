@@ -6,7 +6,7 @@ Requirements
 
 wechrom requires the following python libraries:
 
-* **openmm <= 7.5**
+* **openmm**
 * **numpy**
 * **pandas**
 * **MDAnalysis**
