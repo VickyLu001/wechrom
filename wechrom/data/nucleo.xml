@@ -1,0 +1,31 @@
+<ForceField>
+<!-- Specify atom types -->
+<AtomTypes>
+  <Type name="I" class="I" element="N" mass="1.0"/>
+  <Type name="J" class="J" element="N" mass="1.0"/>
+  <Type name="V" class="V" element="N" mass="0.0"/>
+  <Type name="C" class="C" element="C" mass="330.0"/>
+</AtomTypes>
+
+<!-- Setup residue templates -->
+<Residues>
+ <Residue name="BP">
+  <AllowPatch name="MBP"/>
+  <Atom name="I" type="I"/>
+  <Atom name="J" type="J"/>
+  <Atom name="V" type="V"/>
+  <VirtualSite type="average2" siteName="V" atomName1="I" atomName2="J"
+     weight1="0.5" weight2="0.5"/>
+ </Residue>
+ <Residue name="HIT">
+  <Atom name="C" type="C"/>
+ </Residue>
+</Residues>
+
+<Patches>
+ <Patch name="MBP">
+  <RemoveAtom name="V"/>
+ </Patch>
+</Patches>
+
+</ForceField>

@@ -9,12 +9,12 @@ Documentation
 Documentation and tutorials are hosted in [readthedocs](https://wechrom.readthedocs.io/en/latest/)
 
 
-Installation
+Installation / Usage
 --------------------
 
-To install using pip:
+<!-- To install use pip:
 
-    $ pip install wechrom
+    $ pip install wechrom -->
 
 
 To install from the source:

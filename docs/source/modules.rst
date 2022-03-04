@@ -1,20 +1,39 @@
-wechrom Modules
-===================
+wechrom Classes and Modules
+==============================
 
-wechrom.wechrom
+
+
+Class: wechrom.WechromSystem
 -------------------------------
+.. autoclass:: wechrom.WechromSystem
+    :member-order: bysource
+    :members:
 
-.. automodule:: wechrom.wechrom
-   :members:
-   :undoc-members:
+Class: wechrom.SingleNucleoSystem
+------------------------------------
+.. autoclass:: wechrom.SingleNucleoSystem
+    :member-order: bysource
+    :members:
 
-wechrom.prepare_memory
+.. wechrom.wechrom
+.. -------------------------------
+.. .. automodule:: wechrom.wechrom
+..    :members:
+..    :undoc-members:
+
+.. wechrom.single_nucleosome
+.. -------------------------------
+.. .. automodule:: wechrom.single_nucleosome
+..    :members:
+..    :undoc-members:
+
+Module: wechrom.prepare_memory
 -------------------------------
 .. automodule:: wechrom.prepare_memory
    :members:
    :undoc-members:
 
-wechrom.utils
+Module: wechrom.utils
 -------------------------------
 .. automodule:: wechrom.utils
    :members:
