@@ -154,7 +154,7 @@ class WechromSystem:
         # note in naked DNA system, all atoms are DNA
         for atom in self.atoms:
             if atom.name in self.dnaTypes:
-                excl.addParticle([rExcl/2, np.sqrt(kExcl)])
+                excl.addParticle([rExcl, kExcl])
             else:
                 raise Exception("None DNA atom detected in vanilla WeChroM system")
 

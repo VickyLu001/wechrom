@@ -29,7 +29,8 @@ class SingleNucleoSystem(WechromSystem):
         # atom index for protein
         self.proTypes = [_PRO_TYPE]
         self.protein = [atom.index for atom in self.atoms if atom.name == _PRO_TYPE]
-        assert len(self.protein) == 1, "more than one histone core detected"
+        if verbose:
+            print(f"{len(self.protein)} histone particle(s) detected")
 
         # residues for protein
         self.proRes = [residue.index for residue in self.residues if residue.name == _PRO_RES]
@@ -64,9 +65,9 @@ class SingleNucleoSystem(WechromSystem):
         # note in naked DNA system, all atoms are DNA
         for atom in self.atoms:
             if atom.name in self.dnaTypes:
-                excl.addParticle([rExclDna/2, np.sqrt(kExcl)])
+                excl.addParticle([rExclDna, kExcl])
             elif atom.name in self.proTypes:
-                excl.addParticle([rExclPro/2, np.sqrt(kExcl)])
+                excl.addParticle([rExclPro, kExcl])
             elif atom.name == _VIRTUAL_TYPE:
                 excl.addParticle([0.0, 0.0])
             else:
