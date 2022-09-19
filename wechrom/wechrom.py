@@ -6,7 +6,7 @@ from collections import defaultdict
 from tqdm import tqdm
 from .prepare_memory import generate_naked_memory_files, get_naked_memory_template_bonds
 from .utils import num_intra_memory_bonds, num_inter_memory_bonds
-from .utils import _DNA_S1_TYPE, _DNA_S2_TYPE, _DNA_RES
+from .utils import _DNA_S1_TYPE, _DNA_S2_TYPE, _DNA_RES, _VIRTUAL_TYPE
 
 try:
     # for openmm version >= 7.6
@@ -83,6 +83,11 @@ class WechromSystem:
 
         self.verbose = verbose
 
+        self.virtualSites = [atom.index for atom in self.atoms if atom.name == _VIRTUAL_TYPE]
+        # sanity check
+        for virtualSite in self.virtualSites:
+            assert self.system.isVirtualSite(virtualSite), f"Virtual Sites {virtualSite} not aligned correctly, please check the index in your pdbx file"
+
     def constructDNAIndex(self):
         """Construct DNA atom and residue index, as well as their relations
         """
@@ -155,6 +160,8 @@ class WechromSystem:
         for atom in self.atoms:
             if atom.name in self.dnaTypes:
                 excl.addParticle([rExcl, kExcl])
+            elif atom.name == _VIRTUAL_TYPE:
+                excl.addParticle([0.0, 0.0])
             else:
                 raise Exception("None DNA atom detected in vanilla WeChroM system")
 
@@ -204,6 +211,8 @@ class WechromSystem:
                 for i, pos1 in enumerate(positions):
                     for j in range(i + 1, len(positions)):
                         temDists[dnaType][j-i].append(np.linalg.norm(pos1 - positions[j]))
+
+        self.intraTemDists = temDists
         
         # build associative memory bonds from templates
         for dnaType in self.dnaTypes:
@@ -264,6 +273,8 @@ class WechromSystem:
                     temDists[I][id2 - id1].append(np.linalg.norm(iPos[id1] - jPos[id2]))
                     temDists[J][id2 - id1].append(np.linalg.norm(jPos[id1] - iPos[id2]))
         
+        self.interTemDists = temDists
+
         # build associative memory bonds from templates
         for i in range(self.nBp - 1):
             for j in range(i + 1, min(self.nBp, i + self.memoryRange)):
