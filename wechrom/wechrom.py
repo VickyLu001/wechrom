@@ -381,8 +381,9 @@ class WechromSystem:
         self.simulation.reporters.append(CheckpointReporter(chk_file, reportFreq))
 
         # initialize the energy reporter
+        energyFilepath = os.path.join(self.outputDir, energyFilename)
         if not append:
-            with open(energyFilename, 'w') as fe:
+            with open(energyFilepath, 'w') as fe:
                 header ='Steps ' + ' '.join(['{0:<8s}'.format(i) for i in self.force_Group2Name.values()]) + ' Total Kinetics(kT)\n'
                 fe.write(header)
         
@@ -413,7 +414,7 @@ class WechromSystem:
             positions = state.getPositions(True)
             dcdWriter.writeModel(positions)
             
-            with open(energyFilename, 'a') as fe:
+            with open(energyFilepath, 'a') as fe:
                 curStep = (i+1)*reportFreq
                 line = f'{curStep:<8}' + ' '.join(['{0:<8.2f}'.format(_) for _ in groupEnergy]) + '\n'
                 fe.write(line)
